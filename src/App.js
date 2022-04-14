@@ -6,9 +6,9 @@ import MindElixir, { E } from "mind-elixir";
 import painter from 'mind-elixir/dist/painter';
 import PptxGenJS from "pptxgenjs";
 
-import data from './data.json';
+import data from './datatemp1.json';
 
-const pptx = new PptxGenJS();
+//const pptx = new PptxGenJS();
 
 var mindstring = '';
 
@@ -17,34 +17,11 @@ var mindhistoryIndex = [];
 
 var mindundo = [];
 
+let datajson = '';
+
 function App() {
 
   //const [update, setUpdate] = useState();
-
-  let optionsdata = {
-    el: "#map",
-    direction: MindElixir.LEFT,
-    data: data,
-    //data: MindElixir.new("new topic"),
-    draggable: true,
-    contextMenu: true,
-    toolBar: true,
-    nodeMenu: true,
-    keypress: true, //true
-    allowUndo: false, //ทำ undo, redo manual เอง
-    contextMenuOption: {
-      focus: true,
-      link: true,
-      extend: [
-        {
-          name: 'Undo',
-          onclick: () => {
-            
-          },
-        },
-      ],
-    },
-  }
 
   let options = {
     el: "#map",
@@ -103,7 +80,9 @@ function App() {
     mind.bus.addListener('expandNode', node => {
       //console.log('expandNode: ', node)
     })
-  });
+  },[]);
+
+
 
   const exportData = () => {
     mindstring = mind.getAllData();
@@ -124,7 +103,35 @@ function App() {
 
   }
 
-  const importData = () => {
+  const importData = (datajson) => {
+
+    var obj = JSON.parse(datajson);
+
+    let optionsdata = {
+      el: "#map",
+      direction: MindElixir.LEFT,
+      data: obj,
+      //data: MindElixir.new("new topic"),
+      draggable: true,
+      contextMenu: true,
+      toolBar: true,
+      nodeMenu: true,
+      keypress: true, //true 
+      allowUndo: true, //ทำ undo, redo manual เอง
+      contextMenuOption: {
+        focus: true,
+        link: true,
+        extend: [
+          {
+            name: 'Undo',
+            onclick: () => {
+              
+            },
+          },
+        ],
+      },
+    }
+
     console.log(data.nodeData.id);
 
     mind = new MindElixir(optionsdata);
@@ -139,6 +146,8 @@ function App() {
 
       //console.log(operation);
       mindstring = mind.getAllData();
+
+      console.log(mindstring);
 
       //mindhistory.push(operation);
       //mindhistory = mind.history
@@ -156,7 +165,7 @@ function App() {
 
   const undo = () => {
 
-    if (mindhistory.length == 0 ){
+    if (mindhistory.length === 0 ){
       return 'No undo left';
     }
 
@@ -172,7 +181,7 @@ function App() {
     //mindundo.push(undoOperation);
     //console.log(mindundo)
 
-    if (undoOperation.name == 'finishEdit'){
+    if (undoOperation.name === 'finishEdit'){
       //var idTemp = undoOperation.obj.id
       //var originName = undoOperation.origin
       //console.log(idTemp);
@@ -193,13 +202,12 @@ function App() {
 
   }
 
-  const recursive = (obj) => {
+  const recursive = (obj,pptx) => {
     //var mindObj = mind.getAllData()
+    //console.log(obj.topic);
 
-    console.log(obj.topic);
 
-
-    if (!('children' in obj) || obj.children.length == 0){
+    if (!('children' in obj) || obj.children.length === 0){
 
       //slide.addText(obj.topic, { x: 10, y: 10, w: 10, fontSize: 36, fill: { color: "F1F1F1" }, align: "center" })
 
@@ -208,23 +216,34 @@ function App() {
     } else {
 
       let slide = pptx.addSlide();
-      slide.addText(obj.topic, { x: 1, y: i, h: 1, fontSize: 10, align: "center" })
+      
+      slide.addText(obj.topic, {x:0.5, h: 1, w: "90%", fontSize: 24, align: "center", bold:true })
 
+      //ถ้า children length > 8
+      //
+      var childrentext = []
       for (var i = 0 ; i < obj.children.length ; i++){
-        slide.addText(obj.children[i].topic, { x: 1, y: i+1, h: 1, fontSize: 10, align: "center" })
+
+        //slide.addText(obj.children[i].topic+(i+1)/2, { x: 0.5, y: (i+1)/2, h: 1, w: 9, fontSize: 14, align: "left" ,bullet: true})
+
+        childrentext.push({ text: obj.children[i].topic, options: { fontSize: 14, align: "left", bullet: true, breakLine: true } })
       }
 
+      slide.addText(childrentext, { x: 0.5, y: 1, w: "90%", h: 2 });
+
       for (var j = 0 ; j < obj.children.length ; j++){
-        recursive(obj.children[j]);
+        //console.log(obj.children[j]);
+        recursive(obj.children[j],pptx);
       }
 
     }
   }
 
   const onExport = () => {
-    //const pptx = new PptxGenJS();
+    var pptx = new PptxGenJS();
     var mindObj = mind.getAllData();
-    recursive(mindObj.nodeData);
+    //console.log(mindObj.nodeData);
+    recursive(mindObj.nodeData,pptx);
 
     
 
@@ -234,14 +253,22 @@ function App() {
     pptx.writeFile({ fileName: "mindmap.pptx" });
   };
 
+  const readJSON = (e) => {
+      const fileReader = new FileReader();
+      fileReader.readAsText(e.target.files[0], "UTF-8");
+      fileReader.onload = e => {
+        console.log("e.target.result", e.target.result);
+        datajson = e.target.result;
+        importData(datajson);
+      };
+    };
+
   return (
   <>
     <div id="map" style={{ height: "500px", width: "100%" }} />
     <button onClick={paint}>Save as Image</button>
     <button onClick={exportData}>Save as JSON</button>
-    <button onClick={importData}>Import Mind map</button>
-    <button id='undo' onClick={undo}>Undo</button>
-    <button onClick={redo}>Redo</button>
+    <input type="file" onChange={readJSON} />
     <button onClick={onExport}>To Powerpoint</button>
   </>
   );
